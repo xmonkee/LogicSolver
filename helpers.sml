@@ -6,3 +6,7 @@ fun add_to_list(clist, c) =
 fun all f ilist = case ilist of
 	[] => true
 	|x::xs => (f x) andalso (all f xs)
+
+fun zip xs ys = case xs of
+	[] => []
+	_  => (hd xs, hd ys) :: (zip tl xs tl ys)
