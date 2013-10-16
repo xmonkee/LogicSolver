@@ -8,8 +8,14 @@ infixr 0 equals
 
 exception VarCantEval
 
+fun lookupvar vlist tlist c =
+	let val table = (zip vlist tlist)
+		fun aux table = case table of
+			[] => v c
+			(v, t)::xs => if v=c then t else (aux xs)
+			
 
-fun eval e = case e of
+fun eval e vlist tlist = case e of
  T	 			=> T
 |F				=> F		
 | !e1 			=> ( case eval e1 of T => F 	| F => T		)
@@ -17,7 +23,7 @@ fun eval e = case e of
 | e1 or e2	 	=> (case eval e1 of T => T	 	| F => eval e2	)
 | e1 gives e2	=> (case eval e1 of F => T 		| T	=> eval e2	)
 | e1 equals e2	=> (case eval e1 of T => eval e2| F => eval (!e2))
-| v x 			=> raise VarCantEval
+| v x 			=> lookupvar vlist tlist c
 
 
 fun vars_list (proplist) =
@@ -35,7 +41,7 @@ fun vars_list (proplist) =
 		case proplist of
 		[] 		=>	[]
 		|x::[]	=>	aux(x, [])
-		|x::xs	=>	aux(x, vars_list(xs))
+		|x::xs	=>	aux(x, vars_lists(xs))
 	end
 	
 fun replace_var prop chr bln =
