@@ -1,88 +1,115 @@
 use "helpers.sml";
 
-datatype boolean = TRUE | FALSE 
-datatype oper = AND of oper*oper | OR of oper*oper | NOT of oper | IMPL of oper*oper | EQ of oper*oper | CONST of boolean | VAR of string
+datatype oper = ! of oper | & of oper*oper | or of oper*oper | gives of oper*oper | equals of oper*oper | T | F | v of string
+infixr 2 &
+infixr 1 or
+infixr 0 gives
+infixr 0 equals
 
 exception VarCantEval
 
+
 fun eval e = case e of
-CONST x 			=> x
-| NOT 	(e 	)		=> (case eval e of TRUE 	=> FALSE 	| FALSE => TRUE)
-| AND 	(e1, e2) 	=> (case eval e1 of TRUE 	=> eval e2 	| FALSE => FALSE)
-| OR 	(e1, e2) 	=> (case eval e1 of TRUE 	=> TRUE 	| FALSE => eval e2)
-| IMPL 	(e1, e2)	=> (case eval e1 of FALSE 	=> TRUE 	| TRUE	=> eval e2)
-| EQ 	(e1, e2) 	=> (case eval e1 of 
-						TRUE 	=> (case eval e2 of TRUE => TRUE | FALSE => FALSE) 
-						|FALSE 	=> (case eval e2 of TRUE => FALSE | FALSE => TRUE) )
-| VAR x 			=> raise VarCantEval
+ T	 			=> T
+|F				=> F		
+| !e1 			=> ( case eval e1 of T => F 	| F => T		)
+| e1 & e2	 	=> (case eval e1 of T => eval e2| F => F		)
+| e1 or e2	 	=> (case eval e1 of T => T	 	| F => eval e2	)
+| e1 gives e2	=> (case eval e1 of F => T 		| T	=> eval e2	)
+| e1 equals e2	=> (case eval e1 of T => eval e2| F => eval (!e2))
+| v x 			=> raise VarCantEval
 
-fun vars_list (prop) =
-	let fun aux (prop, acc) =
-		case prop of 
-			VAR c => add_to_list(acc, c)
-			| CONST bln => acc
-			| NOT (e1) => aux(e1, acc)
-			| AND (e1, e2) => aux(e2, aux(e1, acc))
-			| OR (e1, e2) => aux(e2, aux(e1, acc))
-			| IMPL (e1, e2) => aux (e2, aux(e1, acc))
-			| EQ (e1, e2) => aux (e2, aux(e1, acc))
-	in aux(prop, [])
+
+fun vars_list (proplist) =
+	let 
+		fun aux (prop, acc) = case prop of 
+			v c => add_to_list(acc, c)
+			| F => acc
+			| T => acc
+			| ! e1 => aux(e1, acc)
+			| e1 & e2 => aux(e2, aux(e1, acc))
+			| e1 or e2 => aux(e2, aux(e1, acc))
+			| e1 gives e2 => aux (e2, aux(e1, acc))
+			| e1 equals e2 => aux (e2, aux(e1, acc))
+	in
+		case proplist of
+		[] 		=>	[]
+		|x::[]	=>	aux(x, [])
+		|x::xs	=>	aux(x, vars_list(xs))
 	end
-
+	
 fun replace_var prop chr bln =
 	case prop of 
-	VAR c => if c=chr then CONST bln else VAR c
-	| CONST bln => CONST bln
-	| NOT (e1) => NOT (replace_var e1 chr bln)
-	| AND (e1, e2) => AND (replace_var e1 chr bln, replace_var e2 chr bln)
-	| OR (e1, e2) => OR (replace_var e1 chr bln, replace_var e2 chr bln)
-	| IMPL (e1, e2) => IMPL (replace_var e1 chr bln, replace_var e2 chr bln)
-	| EQ (e1, e2) => EQ (replace_var e1 chr bln, replace_var e2 chr bln)
+	v c => if c=chr then bln else v c
+	| T => T
+	| F => F
+	| ! e1 => ! (replace_var e1 chr bln)
+	| e1 & e2 =>  (replace_var e1 chr bln) & (replace_var e2 chr bln)
+	| e1 or e2 =>  (replace_var e1 chr bln) or (replace_var e2 chr bln)
+	| e1 gives e2 =>  (replace_var e1 chr bln) gives (replace_var e2 chr bln)
+	| e1 equals e2 => (replace_var e1 chr bln) equals (replace_var e2 chr bln)
 
+fun toString prop = case prop of
+	v c => c
+	|T => "T"
+	|F => "F"
+	| ! e => "~" ^ (toString e)
+	|e1 & e2 => "(" ^ (toString e1) ^ " ^ " ^ (toString e2) ^ ")"
+	|e1 or e2 => "(" ^ (toString e1) ^ " v " ^ (toString e2) ^ ")"
+	|e1 gives e2 => "(" ^ (toString e1) ^ " => " ^ (toString e2) ^ ")"
+	|e1 equals e2 => "(" ^ (toString e1) ^ " <=> " ^ (toString e2) ^ ")"
+	
 fun replace_all_vars prop vlist tlist = case vlist of
 	[] => prop
 	|_ => replace_all_vars (replace_var prop (hd vlist) (hd tlist))  (tl vlist) (tl tlist)
 	
-fun binary_table vlist t f = 
+fun binary_table vlist = 
 	let 
 		val num = length vlist
-		fun append_to_each v l = case l of
+		fun append_to_each a blist = case blist of
 			[] => []
-			|x::xs => (v::x) :: append_to_each v xs
+			|x::xs => (a::x) :: append_to_each a xs
 		fun aux num = case num of 
 			0 => []
-			|1 => [[t], [f]]
-			|n => append_to_each t (aux (n-1)) @ append_to_each f  (aux (n-1))
+			|1 => [[T], [F]]
+			|n => append_to_each T (aux (n-1)) @ append_to_each F (aux (n-1))
 	in 
 		aux num
 	end
 
-fun truth prop vlist tlist = eval (replace_all_vars prop vlist tlist)
-	
-fun join_tables ll1 ll2 = case ll1 of
-	[] => []
-	|_ => (hd ll1, hd ll2) :: join_tables (tl ll1) (tl ll2)
+fun truth prop vlist tlist = 
+	eval (replace_all_vars prop vlist tlist)
 
-fun truth_list vlist prop = 
-	let	
-		val tlistlist = binary_table vlist TRUE FALSE
-		fun aux tll = case tll of
-			[] => []
-			|tl::tls =>  truth prop vlist tl :: aux tls
-	in 
-		aux tlistlist
-	end
-
-fun truth_lists vlist proplist = 
-	listify(truth_list(vlist))(proplist)
+fun truth_table proplist = 
+	let val vlist = vars_list proplist
+	in
+		((vlist, 
+		map 
+			(fn prop => toString prop) 
+		proplist), 
 		
-fun satisfies vlist proplist =
+		map 
+			(fn tlist => (tlist, 
+			(map 
+				(fn prop => (truth prop vlist tlist)) 
+			proplist))) 
+		(binary_table vlist))
+	
+	end
+	
+fun satisfies proplist =
 	let 
+		val vlist = vars_list proplist
 		fun aux tls = case tls of
 			[] => []
-			|tl::tls => if (all (fn prop => (truth prop vlist tl)=TRUE) proplist) 
+			|tl::tls => if (all (fn prop => (truth prop vlist tl)=T) proplist) 
 				then tl::aux tls 
 				else aux tls
 	in
-		aux (binary_table vlist TRUE FALSE) 
+		(vlist, aux (binary_table vlist) )
 	end
+
+fun entails proplist conc = 
+		case satisfies (!conc :: proplist) of
+		(_ , []) => true
+		|(_ , _) => false
