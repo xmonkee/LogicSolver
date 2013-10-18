@@ -10,4 +10,3 @@ fun all f ilist = case ilist of
 fun zip xs ys = case xs of
 	[] => []
 	|_  => (hd xs, hd ys) :: (zip (tl xs) (tl ys))
-	
