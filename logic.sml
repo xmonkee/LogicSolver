@@ -1,6 +1,6 @@
 use "helpers.sml";
 
-datatype oper = ! of oper | & of oper*oper | or of oper*oper | gives of oper*oper | equals of oper*oper | T | F | v of string
+datatype oper = ! of oper | & of oper*oper | or of oper*oper | gives of oper*oper | equals of oper*oper | T | F | A | v of string
 infixr 2 &
 infixr 1 or
 infixr 0 gives
@@ -21,15 +21,20 @@ fun eval vlist tlist e =
     fun eval e = case e of
      T         => T
     |F        => F    
-    | !e1          => ( case eval e1 of T => F       | F => T          | _ => !e1                )
-    | e1 & e2      => ( case eval e1 of T => eval e2 | F => F          | _ => e1 &     (eval e2) )
-    | e1 or e2     => ( case eval e1 of T => T       | F => eval e2    | _ => e1 or    (eval e2) )
-    | e1 gives e2  => ( case eval e1 of F => T       | T => eval e2    | _ => e1 gives (eval e2) )
-    | e1 equals e2 => ( case eval e1 of T => eval e2 | F => eval (!e2) | _ => e1 equals(eval e2) )
+    | !e1          => ( case eval e1 of T => F       | F => T          | _ => !e1                       )
+    | e1 & e2      => ( case eval e1 of T => eval e2 | F => F          | _ => (eval e1) &     (eval e2) )
+    | e1 or e2     => ( case eval e1 of T => T       | F => eval e2    | _ => (eval e1) or    (eval e2) )
+    | e1 gives e2  => ( case eval e1 of F => T       | T => eval e2    | _ => (eval e1) gives (eval e2) )
+    | e1 equals e2 => ( case eval e1 of T => eval e2 | F => eval (!e2) | _ => (eval e1) equals(eval e2) )
     | v x          => lookupvar vlist tlist x
   in
     eval e
   end
+
+fun evaltrue vlist tlist plist = all (fn p => (eval vlist tlist p) = T) plist
+fun evalfalse vlist tlist plist = exists (fn p => (eval vlist tlist p) = F) plist
+fun evalist vlist tlist plist = map (eval vlist tlist) plist
+fun v2p vlist = case vlist of [] => [] | x::xs => A::v2p(xs)
 
 fun toString prop = case prop of
     v c            => c
@@ -44,14 +49,14 @@ fun toString prop = case prop of
 fun vars_list (proplist) =
   let 
     fun aux (prop, acc) = case prop of 
-      v c            => add_to_list(acc, c)
-    | F              => acc
-    | T              => acc
-    | ! e1           => aux (e1, acc)
-    | e1 & e2        => aux (e2, aux(e1, acc))
-    | e1 or e2       => aux (e2, aux(e1, acc))
-    | e1 gives e2    => aux (e2, aux(e1, acc))
-    | e1 equals e2   => aux (e2, aux(e1, acc))
+      v c          => add_to_list(acc, c)
+    | F            => acc
+    | T            => acc
+    | ! e1         => aux (e1, acc)
+    | e1 & e2      => aux (e2, aux(e1, acc))
+    | e1 or e2     => aux (e2, aux(e1, acc))
+    | e1 gives e2  => aux (e2, aux(e1, acc))
+    | e1 equals e2 => aux (e2, aux(e1, acc))
   in
     case proplist of
     []     =>  []
@@ -63,9 +68,6 @@ fun vars_list (proplist) =
 fun binary_table vlist = 
   let 
     val num = length vlist
-    fun append_to_each a blist = case blist of
-      [] => []
-      |x::xs => (a::x) :: append_to_each a xs
     fun aux num = case num of 
       0 => []
       |1 => [[T], [F]]
@@ -85,30 +87,50 @@ fun truth_table proplist =
     (binary_table vlist))
   end
   
-fun satisfies proplist =
+fun satisfies_tt proplist =
   let 
     val vlist = vars_list proplist
-    fun aux tls = case tls of
-      [] => []
-      |tl::tls => if (all (fn prop => (eval vlist tl prop)=T) proplist) 
-        then tl::aux tls 
-        else aux tls
+    val tlist = binary_table vlist
+    val tlistf = filter (fn tl => evaltrue vlist tl proplist) tlist
   in
-    (vlist, aux (binary_table vlist) )
+    case tlistf of
+      [] => (vlist, NONE)
+      |_ => (vlist, SOME tlistf)
+  end
+
+fun satisfies plist =
+  let
+    fun satisfies (vlist, plist) = 
+      if (evaltrue [] [] plist) 
+        then SOME [(v2p vlist)]
+        else if (evalfalse [] [] plist)
+          then NONE
+          else case vlist of
+            x::xs => 
+              let 
+                val t = satisfies(xs, evalist [x] [T] plist)
+                val f = satisfies(xs, evalist [x] [F] plist)
+              in 
+                (*
+                print (hd vlist); print " : "; print (toString (hd plist)); print "\n";
+                *)
+                (case (t,f) of 
+                (NONE,NONE) => NONE
+                |(SOME ts, NONE) => SOME (append_to_each T ts)
+                |(NONE, SOME fs) => SOME (append_to_each F fs)
+                |(SOME ts, SOME fs) => SOME ((append_to_each T ts)@(append_to_each F fs)) 
+                )
+              end
+             |[] => if (evaltrue [] [] plist)
+              then SOME []
+              else NONE
+    val vlist = vars_list plist
+    val sat = satisfies (vlist, plist)
+  in
+    (vlist, sat)
   end
 
 fun entails proplist conc = 
     case satisfies (!conc :: proplist) of
-    (_ , []) => true
+    (_ , NONE) => true
     |(_ , _) => false
-
-fun equiv p1 p2 = 
-  let
-    val (vlist1, tll1) = satisfies p1;
-    val (vlist2, tll2) = satisfies p2;
-    fun truth vlist tlist proplist = all (fn prop => (eval vlist tlist prop) = T) proplist
-    val p1vp2 = all (fn tlist => truth vlist1 tlist p2) (tll1)
-    val p2vp1 = all (fn tlist => truth vlist2 tlist p1) (tll2)
-  in
-    p1vp2 andalso p2vp1
-  end

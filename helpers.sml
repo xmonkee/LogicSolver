@@ -10,3 +10,26 @@ fun all f ilist = case ilist of
 fun zip xs ys = case xs of
 	[] => []
 	|_  => (hd xs, hd ys) :: (zip (tl xs) (tl ys))
+
+fun filter f xs = case xs of
+	[] => []
+	|x::xs' => if (f x) 
+		then x::(filter f xs')
+		else (filter f xs')
+
+fun exists f xs = case xs of
+	[] => false
+	|x::xs' => if f(x) 
+		then true
+		else exists f xs'
+
+fun rev xs = 
+	let fun rev (xs, acc) = case xs of
+		[] => acc
+		|x::xs' => rev (xs', x::acc)
+	in rev (xs, [])
+	end
+
+fun append_to_each a blist = case blist of
+      [] => []
+      |x::xs => (a::x) :: append_to_each a xs
