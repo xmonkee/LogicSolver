@@ -1,0 +1,1 @@
+sed 'sed 's/¬/\!/g' | sed 's/∨/or/g' | sed 's/∧/\&/g' | sed 's/⇒/gives/g'

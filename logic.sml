@@ -111,9 +111,6 @@ fun satisfies plist =
                 val t = satisfies(xs, evalist [x] [T] plist)
                 val f = satisfies(xs, evalist [x] [F] plist)
               in 
-                (*
-                print (hd vlist); print " : "; print (toString (hd plist)); print "\n";
-                *)
                 (case (t,f) of 
                 (NONE,NONE) => NONE
                 |(SOME ts, NONE) => SOME (append_to_each T ts)

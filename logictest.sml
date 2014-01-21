@@ -1,4 +1,5 @@
 use "logic.sml";
+use "varnames.sml";
 
 val p1 = v "a" & v "b" or v "c";
 val vlist = ["a", "b", "c"];

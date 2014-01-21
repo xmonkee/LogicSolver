@@ -30,6 +30,5 @@ fun rev xs =
 	in rev (xs, [])
 	end
 
-fun append_to_each a blist = case blist of
-      [] => []
-      |x::xs => (a::x) :: append_to_each a xs
+fun append_to_each a blist = 
+	map (fn b => a::b) blist

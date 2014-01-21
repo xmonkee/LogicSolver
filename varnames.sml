@@ -1,0 +1,28 @@
+use "logic.sml";
+
+val a = v"a"
+val b = v"b"
+val c = v"c"
+val d = v"d"
+val e = v"e"
+val f = v"f"
+val g = v"g"
+val h = v"h"
+val i = v"i"
+val j = v"j"
+val k = v"k"
+val l = v"l"
+val m = v"m"
+val n = v"n"
+val p = v"p"
+val q = v"q"
+val r = v"r"
+val s = v"s"
+val t = v"t"
+val u = v"u"
+val w = v"w"
+val x = v"x"
+val y = v"y"
+val z = v"z"
+fun nand (a, b) = !a or !b
+infixr nand
