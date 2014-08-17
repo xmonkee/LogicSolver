@@ -147,8 +147,9 @@ fun satisfies plist =
                 (NONE,NONE) => NONE
                 |(SOME ts, NONE) => SOME (append_to_each T ts)
                 |(NONE, SOME fs) => SOME (append_to_each F fs)
-                |(SOME ts, SOME fs) => SOME ((append_to_each T ts)@(append_to_each F fs)) 
-                )
+                |(SOME ts, SOME fs) => (if ts = fs 
+                                           then SOME (append_to_each A ts)
+                                           else SOME ((append_to_each T ts)@(append_to_each F fs))))
               end
              |[] => if (evaltrue [] [] plist)
               then SOME []
