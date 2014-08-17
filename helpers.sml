@@ -32,3 +32,5 @@ fun rev xs =
 
 fun append_to_each a blist = 
 	map (fn b => a::b) blist
+
+
